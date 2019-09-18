@@ -243,15 +243,21 @@ func (rc *Client) RestoreMultipleTables(groups []*FileGroup, restoreTS uint64) e
 	var returnErr error
 	errCh := make(chan error, len(groups))
 	uploadJobCh := make(chan uploadJob, len(groups))
-	importJobCh := make(chan importJob, len(groups))
-	defer close(errCh)
-	defer close(uploadJobCh)
-	defer close(importJobCh)
-
+	importJobChs := make([]chan importJob, len(groups))
 	clients := rc.GetImportKVClients()
 	for i := 0; i < len(clients); i++ {
-		n := i % len(clients)
-		cli := clients[n]
+		importJobChs[i] = make(chan importJob, len(groups))
+	}
+	defer close(errCh)
+	defer close(uploadJobCh)
+	defer func() {
+		for i := 0; i < len(clients); i++ {
+			close(importJobChs[i])
+		}
+	}()
+
+	for i := 0; i < len(clients); i++ {
+		cli := clients[i]
 		for j := 0; j < rc.maxOpenEngines; j++ {
 			go func(client import_kvpb.ImportKVClient, n int) {
 				for job := range uploadJobCh {
@@ -261,58 +267,60 @@ func (rc *Client) RestoreMultipleTables(groups []*FileGroup, restoreTS uint64) e
 						errCh <- errors.Trace(err)
 						return
 					}
-					importJobCh <- importJob{
+					importJobChs[n] <- importJob{
 						Group:  job.Group,
 						Client: client,
 					}
 				}
-			}(cli, n)
+			}(cli, i)
 		}
 	}
 
-	for i := 0; i < rc.maxImportJobs; i++ {
-		go func() {
-			for job := range importJobCh {
-				group := job.Group
-				log.Info("start to import group",
-					zap.Uint64("restore_ts", restoreTS),
-					zap.String("group", group.Schema.Name.String()),
-					zap.String("uuid", group.UUID.String()),
-					zap.String("db", group.Db.Name.String()),
-				)
-				err := rc.ImportEngine(job.Client, group.UUID.Bytes())
-				if err != nil {
-					log.Error("import engine failed",
+	for i := 0; i < len(clients); i++ {
+		for j := 0; j < rc.maxImportJobs; j++ {
+			go func(n int) {
+				for job := range importJobChs[n] {
+					group := job.Group
+					log.Info("start to import group",
 						zap.Uint64("restore_ts", restoreTS),
 						zap.String("group", group.Schema.Name.String()),
 						zap.String("uuid", group.UUID.String()),
 						zap.String("db", group.Db.Name.String()),
-						zap.Error(err),
 					)
-					errCh <- errors.Trace(err)
-					return
-				}
-				err = rc.CleanupEngine(job.Client, group.UUID.Bytes())
-				if err != nil {
-					log.Error("cleanup engine failed",
+					err := rc.ImportEngine(job.Client, group.UUID.Bytes())
+					if err != nil {
+						log.Error("import engine failed",
+							zap.Uint64("restore_ts", restoreTS),
+							zap.String("group", group.Schema.Name.String()),
+							zap.String("uuid", group.UUID.String()),
+							zap.String("db", group.Db.Name.String()),
+							zap.Error(err),
+						)
+						errCh <- errors.Trace(err)
+						return
+					}
+					err = rc.CleanupEngine(job.Client, group.UUID.Bytes())
+					if err != nil {
+						log.Error("cleanup engine failed",
+							zap.Uint64("restore_ts", restoreTS),
+							zap.String("group", group.Schema.Name.String()),
+							zap.String("uuid", group.UUID.String()),
+							zap.String("db", group.Db.Name.String()),
+							zap.Error(err),
+						)
+						errCh <- errors.Trace(err)
+						return
+					}
+					log.Info("import group finished",
 						zap.Uint64("restore_ts", restoreTS),
 						zap.String("group", group.Schema.Name.String()),
 						zap.String("uuid", group.UUID.String()),
 						zap.String("db", group.Db.Name.String()),
-						zap.Error(err),
 					)
-					errCh <- errors.Trace(err)
-					return
+					errCh <- nil
 				}
-				log.Info("import group finished",
-					zap.Uint64("restore_ts", restoreTS),
-					zap.String("group", group.Schema.Name.String()),
-					zap.String("uuid", group.UUID.String()),
-					zap.String("db", group.Db.Name.String()),
-				)
-				errCh <- nil
-			}
-		}()
+			}(i)
+		}
 	}
 
 	go func() {
