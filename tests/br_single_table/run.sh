@@ -18,16 +18,16 @@ DB="br_single_table"
 TABLE="table_1"
 
 run_sql "CREATE DATABASE $DB;"
-run_sql "CREATE TABLE $TABLE(a int);"
+run_sql "CREATE TABLE $DB.$TABLE(a int);"
 
 for i in $(seq 100); do
-    run_sql "INSERT INTO $TABLE VALUES ($i);"
+    run_sql "INSERT INTO $DB.$TABLE VALUES ($i);"
 done
 
 # backup table
 br --pd $PD_ADDR backup table -s "local://$TEST_DIR/tidb/backupdata" --db $DB -t $TABLE --ratelimit 100 --concurrency 4
 
-run_sql "DELETE * FROM $TABLE;"
+run_sql "DELETE * FROM $DB.$TABLE;"
 
 # restore table
 br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_IP:$TIDB_PORT)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
