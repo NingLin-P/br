@@ -17,6 +17,12 @@ set -eu
 DB="br_single_table"
 TABLE="table_1"
 
+TIDB_ADDR="127.0.0.1:4000"
+TIDB_IP="127.0.0.1"
+PD_ADDR="127.0.0.1:2379"
+TIKV_ADDR="127.0.0.1:20160"
+IMPORTER_ADDR="127.0.0.1:8808"
+
 run_sql "CREATE DATABASE $DB;"
 run_sql "CREATE TABLE $DB.$TABLE(a int);"
 
@@ -30,7 +36,7 @@ br --pd $PD_ADDR backup table -s "local://$TEST_DIR/tidb/backupdata" --db $DB -t
 run_sql "DELETE * FROM $DB.$TABLE;"
 
 # restore table
-br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_IP:$TIDB_PORT)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
+br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
 for i in $(seq 100) do
     run_sql "SELECT sum(a) FROM $DB.$TABLE WHERE a=$i;"

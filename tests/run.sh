@@ -20,8 +20,6 @@ TEST_DIR=/tmp/backup_restore_test
 PD_ADDR="127.0.0.1:2379"
 TIKV_ADDR="127.0.0.1:20160"
 IMPORTER_ADDR="127.0.0.1:8808"
-TIDB_IP="127.0.0.1"
-TIDB_PORT="4000"
 
 stop_services() {
     killall -9 tikv-server || true
