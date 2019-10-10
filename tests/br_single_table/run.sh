@@ -24,12 +24,14 @@ go-ycsb load mysql -P tests/br_single_table/workload -p mysql.host=$TIDB_IP -p m
 row_count_ori=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
 # backup table
-br --pd $PD_ADDR backup table -s "local://$TEST_DIR/tidb/backupdata" --db $DB -t $TABLE --ratelimit 100 --concurrency 4
+br --pd $PD_ADDR backup table -s "local://$TEST_DIR/$DB/backupdata" --db $DB -t $TABLE --ratelimit 100 --concurrency 4
 
 run_sql "DELETE FROM $DB.$TABLE;"
 
 # restore table
 br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
+
+rm -rf backupmeta
 
 row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
