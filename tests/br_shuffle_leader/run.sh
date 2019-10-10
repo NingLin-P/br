@@ -15,35 +15,32 @@
 
 set -eu
 DB="br_shuffle_leader"
-TABLE_COUNT=10
+TABLE="usertable"
 
 run_sql "CREATE DATABASE $DB;"
 
-for i in $(seq $TABLE_COUNT); do
-    run_sql "CREATE TABLE $DB.$TABLE_$i(a int);"
-    for j in $(seq 100); do
-        run_sql "INSERT INTO $DB.$TABLE_$i VALUES ($j);"
-    done
-done
+go-ycsb load mysql -P tests/br_shuffle_leader/workload -p mysql.host=$TIDB_IP -p mysql.port=$TIDB_PORT -p mysql.user=root -p mysql.db=$DB
 
+row_count_ori=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
-# backup table
+# backup with shuffle leader
 br --pd $PD_ADDR backup full -s "local://$TEST_DIR/tidb/backupdata" --ratelimit 100 --concurrency 4 &
 pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-leader-scheduler &
 wait
 
-for i in $(seq $TABLE_COUNT); do
-    run_sql "DELETE FROM $DB.$TABLE_$i;"
-done
+run_sql "DELETE FROM $DB.$TABLE;"
 
-# restore table
-br restore table full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR &
+# restore with shuffle leader
+br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR &
 pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-leader-scheduler &
 wait
 
-for i in $(seq $TABLE_COUNT); do
-    for j in $(seq 100); do
-        run_sql "SELECT sum(a) FROM $DB.$TABLE_$i WHERE a=$j;"
-        check_contain "sum(a): $j"
-    done
-done
+row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
+
+echo "original row count: $row_count_ori, new row count: $row_count_new"
+
+if [ "$row_count_ori" -eq "$row_count_new" ];then
+    echo "TEST: [br_shuffle_leader] sucess!"
+else
+    echo "TEST: [br_shuffle_leader] fail!"
+fi
