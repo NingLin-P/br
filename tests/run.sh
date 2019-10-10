@@ -20,6 +20,9 @@ TEST_DIR=/tmp/backup_restore_test
 PD_ADDR="127.0.0.1:2379"
 TIKV_ADDR="127.0.0.1:20160"
 IMPORTER_ADDR="127.0.0.1:8808"
+TIDB_IP="127.0.0.1"
+TIDB_PORT="4000"
+TIDB_ADDR="127.0.0.1:4000"
 
 stop_services() {
     killall -9 tikv-server || true
@@ -78,7 +81,7 @@ EOF
 
     echo "Verifying TiDB is started..."
     i=0
-    while ! mysql -uroot -h127.0.0.1 -P4000 --default-character-set utf8 -e 'select * from mysql.tidb;'; do
+    while ! curl "http://$TIDB_IP:10080/status" --silent; do
         i=$((i+1))
         if [ "$i" -gt 10 ]; then
             echo 'Failed to start TiDB'
@@ -101,5 +104,5 @@ for script in tests/*/run.sh; do
     TEST_DIR="$TEST_DIR" \
     PATH="tests/_utils:bin:$PATH" \
     TEST_NAME="$(basename "$(dirname "$script")")" \
-    sh "$script"
+    source "$script"
 done

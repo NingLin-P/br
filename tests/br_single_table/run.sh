@@ -17,18 +17,12 @@ set -eu
 DB="br_single_table"
 TABLE="table_1"
 
-TIDB_ADDR="127.0.0.1:4000"
-TIDB_IP="127.0.0.1"
-PD_ADDR="127.0.0.1:2379"
-TIKV_ADDR="127.0.0.1:20160"
-IMPORTER_ADDR="127.0.0.1:8808"
-
 run_sql "CREATE DATABASE $DB;"
 run_sql "CREATE TABLE $DB.$TABLE(a int);"
 
-for i in $(seq 100); do
-    run_sql "INSERT INTO $DB.$TABLE VALUES ($i);"
-done
+go-ycsb load mysql -P ./workload -p mysql.host=$TIDB_IP -p mysql.port=$TIDB_PORT mysql.user=root mysql.db=$DB
+
+row_count_ori=$(run_sql_res "SELECT COUNT(a) FROM $DB.$TABLE WHERE a < 10000;" | awk '/COUNT/{print $2}')
 
 # backup table
 br --pd $PD_ADDR backup table -s "local://$TEST_DIR/tidb/backupdata" --db $DB -t $TABLE --ratelimit 100 --concurrency 4
@@ -38,7 +32,12 @@ run_sql "DELETE FROM $DB.$TABLE;"
 # restore table
 br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
-for i in $(seq 100) do
-    run_sql "SELECT sum(a) FROM $DB.$TABLE WHERE a=$i;"
-    check_contain "sum(a): $i"
-done
+row_count_new=$(run_sql_res "SELECT COUNT(a) FROM $DB.$TABLE WHERE a < 10000;" | awk '/COUNT/{print $2}')
+
+echo "original row count: $row_count_ori, new row count: $row_count_new"
+
+if [ "$row_count_ori" -eq "$row_count_new" ];then
+    echo "TEST: [br_single_table] sucess!"
+else
+    echo "TEST: [br_single_table] fail!"
+fi
