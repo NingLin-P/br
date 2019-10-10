@@ -27,12 +27,15 @@ row_count_ori=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{pr
 pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-leader-scheduler
 
 # backup with shuffle leader
-br --pd $PD_ADDR backup full -s "local://$TEST_DIR/$DB/backupdata" --ratelimit 100 --concurrency 4
+br --pd $PD_ADDR backup table -s "local://$TEST_DIR/$DB/backupdata" --db $DB -t $TABLE --ratelimit 100 --concurrency 4
 
 run_sql "DELETE FROM $DB.$TABLE;"
 
 # restore with shuffle leader
-br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
+br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
+
+# remove shuffle leader scheduler
+pd-ctl -u "http://$PD_ADDR" -d sched remove shuffle-leader-scheduler
 
 row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
