@@ -18,11 +18,13 @@ set -eu
 TEST_DIR=/tmp/backup_restore_test
 
 PD_ADDR="127.0.0.1:2379"
-TIKV_ADDR="127.0.0.1:20160"
 IMPORTER_ADDR="127.0.0.1:8808"
 TIDB_IP="127.0.0.1"
 TIDB_PORT="4000"
 TIDB_ADDR="127.0.0.1:4000"
+
+TIKV_ADDR="127.0.0.1:2016"
+TIKV_COUNT=2
 
 stop_services() {
     killall -9 tikv-server || true
@@ -49,21 +51,15 @@ start_services() {
         sleep 1
     done
 
-    # Tries to limit the max number of open files under the system limit
-    cat - > "$TEST_DIR/tikv-config.toml" <<EOF
-[rocksdb]
-max-open-files = 4096
-[raftdb]
-max-open-files = 4096
-EOF
-
     echo "Starting TiKV..."
-    bin/tikv-server \
-        --pd "$PD_ADDR" \
-        -A "$TIKV_ADDR" \
-        --log-file "$TEST_DIR/tikv.log" \
-        -C "$TEST_DIR/tikv-config.toml" \
-        -s "$TEST_DIR/tikv" &
+    for i in $(seq $TIKV_COUNT); do
+        bin/tikv-server \
+            --pd "$PD_ADDR" \
+            -A "$TIKV_ADDR$i" \
+            --log-file "$TEST_DIR/tikv${i}.log" \
+            -C "$TEST_DIR/tikv-config${i}.toml" \
+            -s "$TEST_DIR/tikv${i}" &
+    done
     sleep 1
 
     echo "Starting TiDB..."

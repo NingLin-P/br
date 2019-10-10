@@ -17,6 +17,7 @@ integration_test:
 	@which bin/tidb-server
 	@which bin/tikv-server
 	@which bin/pd-server
+	@which bin/pd-ctl
 	@which bin/tikv-importer
 	@which bin/go-ycsb
 	@which bin/br
