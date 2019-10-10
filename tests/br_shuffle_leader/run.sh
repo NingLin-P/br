@@ -23,17 +23,16 @@ go-ycsb load mysql -P tests/br_shuffle_leader/workload -p mysql.host=$TIDB_IP -p
 
 row_count_ori=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
+# add shuffle leader scheduler
+pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-leader-scheduler
+
 # backup with shuffle leader
-br --pd $PD_ADDR backup full -s "local://$TEST_DIR/$DB/backupdata" --ratelimit 100 --concurrency 4 &
-pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-leader-scheduler &
-wait
+br --pd $PD_ADDR backup full -s "local://$TEST_DIR/$DB/backupdata" --ratelimit 100 --concurrency 4
 
 run_sql "DELETE FROM $DB.$TABLE;"
 
 # restore with shuffle leader
-br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR &
-pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-leader-scheduler &
-wait
+br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
 row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 

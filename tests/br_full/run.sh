@@ -37,6 +37,11 @@ done
 # restore full
 br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
+# echo $(run_sql_res "SHOW DATABASES;")
+# for i in $(seq $DB_COUNT); do
+#     echo $(run_sql_res "SHOW TABLES FROM $DB${i};")
+# done
+
 for i in $(seq $DB_COUNT); do
     row_count_new[${i}]=$(run_sql_res "SELECT COUNT(*) FROM $DB${i}.$TABLE;" | awk '/COUNT/{print $2}')
 done
