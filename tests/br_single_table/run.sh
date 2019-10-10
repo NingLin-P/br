@@ -31,8 +31,6 @@ run_sql "DELETE FROM $DB.$TABLE;"
 # restore table
 br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
-rm -rf backupmeta
-
 row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
 echo "original row count: $row_count_ori, new row count: $row_count_new"

@@ -37,21 +37,20 @@ done
 # restore full
 br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
-rm -rf backupmeta
-
 for i in $(seq $DB_COUNT); do
     row_count_new[${i}]=$(run_sql_res "SELECT COUNT(*) FROM $DB${i}.$TABLE;" | awk '/COUNT/{print $2}')
 done
 
 fail=false
 for i in $(seq $DB_COUNT); do
-    if [ "$row_count_ori[${i}]" != "$row_count_new[${i}]" ];then
+    if [ "${row_count_ori[i]}" != "${row_count_new[i]}" ];then
         fail=true
-        echo "TEST: [br_full] fail on database[${i}]"
+        echo "TEST: [br_full] fail on database[${i}] "
+        echo "original row count: ${row_count_ori[i]}, new row count: ${row_count_new[i]}"
     fi
 done
 
-if fail; then
+if $fail; then
     echo "TEST: [br_full] failed!"
 else
     echo "TEST: [br_full] successed!"

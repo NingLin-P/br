@@ -35,8 +35,6 @@ br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --me
 pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-region-scheduler &
 wait
 
-rm -rf backupmeta
-
 row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
 echo "original row count: $row_count_ori, new row count: $row_count_new"
