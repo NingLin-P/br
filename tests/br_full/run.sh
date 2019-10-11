@@ -14,49 +14,45 @@
 # limitations under the License.
 
 set -eu
-DB="br_full"
+DB="$TEST_NAME"
 TABLE="usertable"
 DB_COUNT=3
 
 for i in $(seq $DB_COUNT); do
     run_sql "CREATE DATABASE $DB${i};"
-    go-ycsb load mysql -P tests/br_full/workload -p mysql.host=$TIDB_IP -p mysql.port=$TIDB_PORT -p mysql.user=root -p mysql.db=$DB${i}
+    go-ycsb load mysql -P tests/$TEST_NAME/workload -p mysql.host=$TIDB_IP -p mysql.port=$TIDB_PORT -p mysql.user=root -p mysql.db=$DB${i}
 done
 
 for i in $(seq $DB_COUNT); do
-    row_count_ori[${i}]=$(run_sql_res "SELECT COUNT(*) FROM $DB${i}.$TABLE;" | awk '/COUNT/{print $2}')
+    row_count_ori[${i}]=$(run_sql "SELECT COUNT(*) FROM $DB${i}.$TABLE;" | awk '/COUNT/{print $2}')
 done
 
 # backup full
 br --pd $PD_ADDR backup full -s "local://$TEST_DIR/$DB/backupdata" --ratelimit 100 --concurrency 4
 
 for i in $(seq $DB_COUNT); do
-    run_sql "DELETE FROM $DB${i}.$TABLE;"
+    run_sql "DROP DATABASE $DB${i};"
 done
 
 # restore full
 br restore full --connect "root@tcp($TIDB_ADDR)/" --importer $IMPORTER_ADDR --meta backupmeta --status $TIDB_IP:10080 --pd $PD_ADDR
 
-# echo $(run_sql_res "SHOW DATABASES;")
-# for i in $(seq $DB_COUNT); do
-#     echo $(run_sql_res "SHOW TABLES FROM $DB${i};")
-# done
-
 for i in $(seq $DB_COUNT); do
-    row_count_new[${i}]=$(run_sql_res "SELECT COUNT(*) FROM $DB${i}.$TABLE;" | awk '/COUNT/{print $2}')
+    row_count_new[${i}]=$(run_sql "SELECT COUNT(*) FROM $DB${i}.$TABLE;" | awk '/COUNT/{print $2}')
 done
 
 fail=false
 for i in $(seq $DB_COUNT); do
     if [ "${row_count_ori[i]}" != "${row_count_new[i]}" ];then
         fail=true
-        echo "TEST: [br_full] fail on database[${i}] "
-        echo "original row count: ${row_count_ori[i]}, new row count: ${row_count_new[i]}"
+        echo "TEST: [$TEST_NAME] fail on database $DB${i}"
     fi
+    echo "[original] row count: ${row_count_ori[i]}, [after br] row count: ${row_count_new[i]}"
 done
 
 if $fail; then
-    echo "TEST: [br_full] failed!"
+    echo "TEST: [$TEST_NAME] failed!"
+    exit 1
 else
-    echo "TEST: [br_full] successed!"
+    echo "TEST: [$TEST_NAME] successed!"
 fi

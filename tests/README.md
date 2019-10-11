@@ -26,6 +26,8 @@ programs.
 
 ## Running
 
+Make sure the path is `br/`
+
 Run `make integration_test` to execute the integration tests. This command will
 
 1. Check that all 7 executables exist.
@@ -45,6 +47,3 @@ The script should exit with a nonzero error code on failure.
 Several convenient commands are provided:
 
 * `run_sql <SQL>` — Executes an SQL query on the TiDB database
-* `run_sql_res <SQL>` — Executes an SQL query on the TiDB database and return the result
-* `check_contains <TEXT>` — Checks if the previous `run_sql` result contains the given text
-    (in `-E` format)

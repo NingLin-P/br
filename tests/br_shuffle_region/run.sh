@@ -14,14 +14,14 @@
 # limitations under the License.
 
 set -eu
-DB="br_shuffle_region"
+DB="$TEST_NAME"
 TABLE="usertable"
 
 run_sql "CREATE DATABASE $DB;"
 
-go-ycsb load mysql -P tests/br_shuffle_region/workload -p mysql.host=$TIDB_IP -p mysql.port=$TIDB_PORT -p mysql.user=root -p mysql.db=$DB
+go-ycsb load mysql -P tests/$TEST_NAME/workload -p mysql.host=$TIDB_IP -p mysql.port=$TIDB_PORT -p mysql.user=root -p mysql.db=$DB
 
-row_count_ori=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
+row_count_ori=$(run_sql "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
 # add shuffle region scheduler
 pd-ctl -u "http://$PD_ADDR" -d sched add shuffle-region-scheduler
@@ -37,12 +37,13 @@ br restore table --db $DB --table $TABLE --connect "root@tcp($TIDB_ADDR)/" --imp
 # remove shuffle region scheduler
 pd-ctl -u "http://$PD_ADDR" -d sched remove shuffle-region-scheduler
 
-row_count_new=$(run_sql_res "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
+row_count_new=$(run_sql "SELECT COUNT(*) FROM $DB.$TABLE;" | awk '/COUNT/{print $2}')
 
-echo "original row count: $row_count_ori, new row count: $row_count_new"
+echo "[original] row count: $row_count_ori, [after br] row count: $row_count_new"
 
 if [ "$row_count_ori" -eq "$row_count_new" ];then
-    echo "TEST: [br_shuffle_region] sucess!"
+    echo "TEST: [$TEST_NAME] successed!"
 else
-    echo "TEST: [br_shuffle_region] fail!"
+    echo "TEST: [$TEST_NAME] failed!"
+    exit 1
 fi

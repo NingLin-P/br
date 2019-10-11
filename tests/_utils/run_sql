@@ -14,7 +14,6 @@
 # limitations under the License.
 
 set -eu
-TEST_DIR=/tmp/backup_restore_test
 
 echo "[$(date)] Executing SQL: $1" > "$TEST_DIR/sql_res.$TEST_NAME.txt"
-mysql -uroot -h127.0.0.1 -P4000 --default-character-set utf8 -E -e "$1" >> "$TEST_DIR/sql_res.$TEST_NAME.txt"
+mysql -uroot -h127.0.0.1 -P4000 --default-character-set utf8 -E -e "$1"
