@@ -57,7 +57,6 @@ start_services() {
             --pd "$PD_ADDR" \
             -A "$TIKV_ADDR$i" \
             --log-file "$TEST_DIR/tikv${i}.log" \
-            -C "$TEST_DIR/tikv-config${i}.toml" \
             -s "$TEST_DIR/tikv${i}" &
     done
     sleep 1
