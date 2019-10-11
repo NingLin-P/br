@@ -66,6 +66,7 @@ start_services() {
         -P 4000 \
         --store tikv \
         --path "$PD_ADDR" \
+        --config "tests/config/tidb.toml"
         --log-file "$TEST_DIR/tidb.log" &
 
     echo "Starting Importer..."
