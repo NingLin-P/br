@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	. "github.com/pingcap/check"
-	backuppb "github.com/pingcap/kvproto/pkg/backup"
+	backuppb "github.com/pingcap/kvproto/pkg/brpb"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 

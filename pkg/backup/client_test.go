@@ -9,7 +9,7 @@ import (
 	"time"
 
 	. "github.com/pingcap/check"
-	backuppb "github.com/pingcap/kvproto/pkg/backup"
+	backuppb "github.com/pingcap/kvproto/pkg/brpb"
 	"github.com/pingcap/kvproto/pkg/errorpb"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/kv"

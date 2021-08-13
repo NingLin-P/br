@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/pingcap/errors"
-	backuppb "github.com/pingcap/kvproto/pkg/backup"
+	backuppb "github.com/pingcap/kvproto/pkg/brpb"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/parser/mysql"
 

@@ -11,7 +11,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/pingcap/errors"
-	backuppb "github.com/pingcap/kvproto/pkg/backup"
+	backuppb "github.com/pingcap/kvproto/pkg/brpb"
 	"github.com/pingcap/log"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/pingcap/errors"
-	backuppb "github.com/pingcap/kvproto/pkg/backup"
+	backuppb "github.com/pingcap/kvproto/pkg/brpb"
 
 	berrors "github.com/pingcap/br/pkg/errors"
 )

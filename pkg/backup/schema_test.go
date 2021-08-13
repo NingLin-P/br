@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/golang/protobuf/proto"
-	backuppb "github.com/pingcap/kvproto/pkg/backup"
+	backuppb "github.com/pingcap/kvproto/pkg/brpb"
 
 	. "github.com/pingcap/check"
 	filter "github.com/pingcap/tidb-tools/pkg/table-filter"
