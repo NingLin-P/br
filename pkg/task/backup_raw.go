@@ -215,7 +215,7 @@ func RunBackupRaw(c context.Context, g glue.Glue, cmdName string, cfg *RawKvConf
 	}
 	metaWriter := metautil.NewMetaWriter(client.GetStorage(), metautil.MetaFileSize, false)
 	metaWriter.StartWriteMetasAsync(ctx, metautil.AppendDataFile)
-	err = client.BackupRange(ctx, backupRange.StartKey, backupRange.EndKey, req, metaWriter, progressCallBack)
+	err = client.BackupRange(ctx, backupRange.StartKey, backupRange.EndKey, []byte(""), req, metaWriter, progressCallBack)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -14,9 +14,10 @@ import (
 
 // Range represents a backup response.
 type Range struct {
-	StartKey []byte
-	EndKey   []byte
-	Files    []*backuppb.File
+	StartKey  []byte
+	EndKey    []byte
+	Files     []*backuppb.File
+	TableInfo []byte
 }
 
 // BytesAndKeys returns total bytes and keys in a range.

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pingcap/br/pkg/metautil"
+	"github.com/pingcap/tipb/go-tipb"
 
 	"github.com/google/btree"
 	"github.com/opentracing/opentracing-go"
@@ -77,6 +78,14 @@ const (
 	// RegionUnit represents the progress updated counter when a region finished.
 	RegionUnit ProgressUnit = "region"
 )
+
+func TableToProto(t model.TableInfo) *tipb.TableInfo {
+	cols := util.ColumnsToProto(t.Columns, t.PKIsHandle)
+	return &tipb.TableInfo{
+		TableId: t.ID,
+		Columns: cols,
+	}
+}
 
 // Client is a client instructs TiKV how to do a backup.
 type Client struct {
@@ -231,18 +240,7 @@ func appendRanges(tbl *model.TableInfo, tblID int64) ([]kv.KeyRange, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	for _, index := range tbl.Indices {
-		if index.State != model.StatePublic {
-			continue
-		}
-		ranges = ranger.FullRange()
-		idxRanges, err := distsql.IndexRangesToKVRanges(nil, tblID, index.ID, ranges, nil)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		kvRanges = append(kvRanges, idxRanges...)
-	}
+	// Don't backup index for text format
 	return kvRanges, nil
 }
 
@@ -325,6 +323,7 @@ func BuildBackupRangeAndSchema(
 				zap.Int64("AutoIncID", globalAutoID))
 
 			// remove all non-public indices
+			// keep indices here for restore from text format output
 			n := 0
 			for _, index := range tableInfo.Indices {
 				if index.State == model.StatePublic {
@@ -340,10 +339,15 @@ func BuildBackupRangeAndSchema(
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+			tableInfoData, err := TableToProto(*tableInfo).Marshal()
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
 			for _, r := range tableRanges {
 				ranges = append(ranges, rtree.Range{
-					StartKey: r.StartKey,
-					EndKey:   r.EndKey,
+					StartKey:  r.StartKey,
+					EndKey:    r.EndKey,
+					TableInfo: tableInfoData,
 				})
 			}
 		}
@@ -425,10 +429,11 @@ func (bc *Client) BackupRanges(
 	eg, ectx := errgroup.WithContext(ctx)
 	for id, r := range ranges {
 		id := id
+		tableInfo := r.TableInfo
 		sk, ek := r.StartKey, r.EndKey
 		workerPool.ApplyOnErrorGroup(eg, func() error {
 			elctx := logutil.ContextWithField(ectx, logutil.RedactAny("range-sn", id))
-			err := bc.BackupRange(elctx, sk, ek, req, metaWriter, progressCallBack)
+			err := bc.BackupRange(elctx, sk, ek, tableInfo, req, metaWriter, progressCallBack)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -442,7 +447,7 @@ func (bc *Client) BackupRanges(
 // Returns an array of files backed up.
 func (bc *Client) BackupRange(
 	ctx context.Context,
-	startKey, endKey []byte,
+	startKey, endKey, tableInfo []byte,
 	req backuppb.BackupRequest,
 	metaWriter *metautil.MetaWriter,
 	progressCallBack func(ProgressUnit),
@@ -469,6 +474,7 @@ func (bc *Client) BackupRange(
 
 	req.StartKey = startKey
 	req.EndKey = endKey
+	req.TableInfo = tableInfo
 	req.StorageBackend = bc.backend
 
 	push := newPushDown(bc.mgr, len(allStores))
@@ -483,7 +489,7 @@ func (bc *Client) BackupRange(
 	// Find and backup remaining ranges.
 	// TODO: test fine grained backup.
 	err = bc.fineGrainedBackup(
-		ctx, startKey, endKey, req.StartVersion, req.EndVersion, req.CompressionType, req.CompressionLevel,
+		ctx, startKey, endKey, tableInfo, req.StartVersion, req.EndVersion, req.CompressionType, req.CompressionLevel,
 		req.RateLimit, req.Concurrency, results, progressCallBack)
 	if err != nil {
 		return errors.Trace(err)
@@ -555,7 +561,7 @@ func (bc *Client) findRegionLeader(ctx context.Context, key []byte) (*metapb.Pee
 
 func (bc *Client) fineGrainedBackup(
 	ctx context.Context,
-	startKey, endKey []byte,
+	startKey, endKey, tableInfo []byte,
 	lastBackupTS uint64,
 	backupTS uint64,
 	compressType backuppb.CompressionType,
@@ -610,6 +616,7 @@ func (bc *Client) fineGrainedBackup(
 			go func(boFork *tikv.Backoffer) {
 				defer wg.Done()
 				for rg := range retry {
+					rg.TableInfo = tableInfo
 					backoffMs, err :=
 						bc.handleFineGrained(ctx, boFork, rg, lastBackupTS, backupTS,
 							compressType, compressLevel, rateLimit, concurrency, respCh)
@@ -776,6 +783,8 @@ func (bc *Client) handleFineGrained(
 		Concurrency:      concurrency,
 		CompressionType:  compressType,
 		CompressionLevel: compressionLevel,
+		IsTextFormat:     true,
+		TableInfo:        rg.TableInfo,
 	}
 	lockResolver := bc.mgr.GetLockResolver()
 	client, err := bc.mgr.GetBackupClient(ctx, storeID)
