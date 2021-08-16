@@ -402,6 +402,9 @@ func (rc *Client) createTable(
 	if rc.IsSkipCreateSQL() {
 		log.Info("skip create table and alter autoIncID", zap.Stringer("table", table.Info.Name))
 	} else {
+		// Don't create index since we didn't backup index data
+		// TODO: create index after data restored
+		table.Info.Indices = nil
 		err := db.CreateTable(ctx, table)
 		if err != nil {
 			return CreatedTable{}, errors.Trace(err)
