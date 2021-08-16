@@ -418,7 +418,10 @@ func (rc *Client) createTable(
 			table.Info.IsCommonHandle,
 			newTableInfo.IsCommonHandle)
 	}
-	rules := GetRewriteRules(newTableInfo, table.Info, newTS)
+	rules, err := GetRewriteRules(newTableInfo, table.Info, newTS)
+	if err != nil {
+		return CreatedTable{}, errors.Trace(err)
+	}
 	et := CreatedTable{
 		RewriteRule: rules,
 		Table:       newTableInfo,

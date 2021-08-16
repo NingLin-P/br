@@ -453,6 +453,7 @@ func (importer *FileImporter) downloadSST(
 	rule := import_sstpb.RewriteRule{
 		OldKeyPrefix: encodeKeyPrefix(regionRule.GetOldKeyPrefix()),
 		NewKeyPrefix: encodeKeyPrefix(regionRule.GetNewKeyPrefix()),
+		TableInfo:    regionRule.TableInfo,
 	}
 	sstMeta := GetSSTMetaFromFile(id, file, regionInfo.Region, &rule)
 
@@ -461,6 +462,7 @@ func (importer *FileImporter) downloadSST(
 		StorageBackend: importer.backend,
 		Name:           file.GetName(),
 		RewriteRule:    rule,
+		IsTextFormat:   true,
 	}
 	log.Debug("download SST",
 		logutil.SSTMeta(&sstMeta),

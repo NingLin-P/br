@@ -230,7 +230,10 @@ func newBackupMetaValidateCommand() *cobra.Command {
 						Name: indexInfo.Name,
 					}
 				}
-				rules := restore.GetRewriteRules(newTable, table.Info, 0)
+				rules, err := restore.GetRewriteRules(newTable, table.Info, 0)
+				if err != nil {
+					return errors.Trace(err)
+				}
 				rewriteRules.Data = append(rewriteRules.Data, rules.Data...)
 				tableIDMap[table.Info.ID] = int64(tableID)
 			}

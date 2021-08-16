@@ -60,4 +60,4 @@ replace cloud.google.com/go/storage => github.com/3pointer/google-cloud-go/stora
 
 replace github.com/tikv/pd => github.com/tikv/pd v1.1.0-beta.0.20210609101029-3ba158cf41a4
 
-replace github.com/pingcap/kvproto => github.com/NingLin-P/kvproto v0.0.0-20210810041628-a1812f09ade2
+replace github.com/pingcap/kvproto => github.com/NingLin-P/kvproto v0.0.0-20210815191346-864a1a140b23

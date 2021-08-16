@@ -18,7 +18,9 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/tablecodec"
+	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/codec"
+	"github.com/pingcap/tipb/go-tipb"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -35,10 +37,18 @@ var (
 	quoteRegexp     = regexp.MustCompile("`(?:[^`]|``)*`")
 )
 
+func TableToProto(t model.TableInfo) *tipb.TableInfo {
+	cols := util.ColumnsToProto(t.Columns, t.PKIsHandle)
+	return &tipb.TableInfo{
+		TableId: t.ID,
+		Columns: cols,
+	}
+}
+
 // GetRewriteRules returns the rewrite rule of the new table and the old table.
 func GetRewriteRules(
 	newTable, oldTable *model.TableInfo, newTimeStamp uint64,
-) *RewriteRules {
+) (*RewriteRules, error) {
 	tableIDs := make(map[int64]int64)
 	tableIDs[oldTable.ID] = newTable.ID
 	if oldTable.Partition != nil {
@@ -50,13 +60,10 @@ func GetRewriteRules(
 			}
 		}
 	}
-	indexIDs := make(map[int64]int64)
-	for _, srcIndex := range oldTable.Indices {
-		for _, destIndex := range newTable.Indices {
-			if srcIndex.Name == destIndex.Name {
-				indexIDs[srcIndex.ID] = destIndex.ID
-			}
-		}
+
+	tableInfoData, err := TableToProto(*newTable).Marshal()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	dataRules := make([]*import_sstpb.RewriteRule, 0)
@@ -65,19 +72,13 @@ func GetRewriteRules(
 			OldKeyPrefix: append(tablecodec.EncodeTablePrefix(oldTableID), recordPrefixSep...),
 			NewKeyPrefix: append(tablecodec.EncodeTablePrefix(newTableID), recordPrefixSep...),
 			NewTimestamp: newTimeStamp,
+			TableInfo:    tableInfoData,
 		})
-		for oldIndexID, newIndexID := range indexIDs {
-			dataRules = append(dataRules, &import_sstpb.RewriteRule{
-				OldKeyPrefix: tablecodec.EncodeTableIndexPrefix(oldTableID, oldIndexID),
-				NewKeyPrefix: tablecodec.EncodeTableIndexPrefix(newTableID, newIndexID),
-				NewTimestamp: newTimeStamp,
-			})
-		}
 	}
 
 	return &RewriteRules{
 		Data: dataRules,
-	}
+	}, nil
 }
 
 // GetSSTMetaFromFile compares the keys in file, region and rewrite rules, then returns a sst conn.
