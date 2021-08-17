@@ -9,7 +9,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/log"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/distsql"
 	"github.com/pingcap/tidb/kv"
@@ -17,7 +16,6 @@ import (
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/util/ranger"
 	"github.com/pingcap/tipb/go-tipb"
-	"go.uber.org/zap"
 )
 
 // ExecutorBuilder is used to build a "kv.Request".
@@ -117,35 +115,7 @@ func buildRequest(
 	}
 	reqs = append(reqs, req)
 
-	for _, indexInfo := range tableInfo.Indices {
-		if indexInfo.State != model.StatePublic {
-			continue
-		}
-		var oldIndexInfo *model.IndexInfo
-		if oldTable != nil {
-			for _, oldIndex := range oldTable.Info.Indices {
-				if oldIndex.Name == indexInfo.Name {
-					oldIndexInfo = oldIndex
-					break
-				}
-			}
-			if oldIndexInfo == nil {
-				log.Panic("index not found in origin table, "+
-					"please check the restore table has the same index info with origin table",
-					zap.Int64("table id", tableID),
-					zap.Stringer("table name", tableInfo.Name),
-					zap.Int64("origin table id", oldTableID),
-					zap.Stringer("origin table name", oldTable.Info.Name),
-					zap.Stringer("index name", indexInfo.Name))
-			}
-		}
-		req, err = buildIndexRequest(
-			tableID, indexInfo, oldTableID, oldIndexInfo, startTS, concurrency)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		reqs = append(reqs, req)
-	}
+	// Don't calculate checksum for index data since we didn't backup them
 
 	return reqs, nil
 }
